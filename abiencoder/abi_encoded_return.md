@@ -2,7 +2,7 @@
 
 Counterfactual's generalized state channel implementation relies on abi encoding to pass arbitrary data structures between JavaScript client applications and smart contracts. A useful pattern I wanted to learn more about and incorporate into my own projects.
 
-Thank you to Liam Horne for talking me through how all of this works.
+Thank you to [Liam Horne](https://medium.com/@liamhorne) for talking me through how all of this works.
 
 ## Setup
 
@@ -29,24 +29,22 @@ s := tuple
      ...
 ```
 
-For example, a dynamic `uint256` array is represented as `s = uint256[]` or a more interesting example where a `struct { uint256 id; string name }` is represented as `s = tuple(uint256,string)`.
+For example, a dynamic `uint256` array is represented as `s = 'uint256[]''` or a more interesting example where a `struct { uint256 id; string name }` is represented as `s = 'tuple(uint256,string)''`.
 
-[ethers.js](https://github.com/ethers-io/ethers.js/) has built in encoding and decoding to read abi encoded byte arrays returned from smart contract in addition encoding data before passing in structs as arguments to smart contract functions.
+[ethers.js](https://github.com/ethers-io/ethers.js/) has built in decoding of abi encoded byte arrays returned from smart contracts, in addition to encoding of data before passing in structs as arguments to smart contract functions.
 
 Below is a toy example showing an smart contract implementation along with the JavaScript encode/decode steps.
 
 
 ## Reading Encoded Data
 
-Lets start with a Solidty smart contract that returns an array of `User` structs. It's a good example as we can see a variety of data types (`struct`, `enmum`, `dynamic array` and `uint256`) in one encoded `bytes array`.
+Lets start with a Solidty smart contract that returns an array of `User` structs. It's a good example as we can see a variety of data types (`struct`, `enum`, `dynamic array` and `uint256`) in one encoded `bytes array`.
 
 ```{sol}
 pragma solidity ^0.4.24;
 
 
 contract ABIExample {
-
-  uint256 value;
 
   enum Permission { ReadOnly, Write, Admin }
 
@@ -74,8 +72,8 @@ contract ABIExample {
 Gives us an error message:
 
 ```
-:27:43: TypeError: This type is only supported in the new experimental ABI encoder. Use "pragma experimental ABIEncoderV2;" to enable the feature.
-  function get() public constant returns (User[3]) {
+:23:43: TypeError: This type is only supported in the new experimental ABI encoder. Use "pragma experimental ABIEncoderV2;" to enable the feature.
+  function get() public constant returns (User[]) {
 ```
 
 
@@ -86,8 +84,6 @@ pragma solidity ^0.4.24;
 pragma experimental ABIEncoderV2; // Use experimental encoding.
 
 contract ABIExample {
-
-  uint256 value;
 
   enum Permission { ReadOnly, Write, Admin }
 
@@ -140,7 +136,8 @@ This returns some nested arrays.
 
         [ [Object], [Object] ],  // `User` struct as an array of two BigNumber objects.
                                  // The first of which is `uint256 id`.
-                                 // While the second is `Permission permission` represented as a `uint256` as is the case for Solidity enums.
+                                 // While the second is `Permission permission` represented
+                                 // as a `uint256` as is the case for Solidity enums.
 
 
         [ [Object], [Object] ],  // `User` struct
@@ -165,8 +162,6 @@ pragma experimental ABIEncoderV2;
 
 
 contract ABIExample {
-
-  uint256 value;
 
   enum Permission { ReadOnly, Write, Admin }
 
@@ -210,8 +205,7 @@ const rawData = [ // AbiCoder wraps all of the data.
 
 ];
 
-const encodedData =
-ethers.utils.AbiCoder.defaultCoder.encode(userType, rawData);
+const encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, rawData);
 ```
 
 `encodedData` is the followin string `'0x000000000000000000000000000000000000000000000000000000000000006f0000000000000000000000000000000000000000000000000000000000000002'` which can be passed in as an argument to the `set` function.
@@ -222,6 +216,7 @@ ethers.utils.AbiCoder.defaultCoder.encode(userType, rawData);
 
 For more information check out:
 
-  - [Human-Readable Contract ABIs](https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) by Richard Moore; 
+  - [Human-Readable Contract ABIs](https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) by Richard Moore;
   - [Api Docs](https://docs.ethers.io/ethers.js/html/api-advanced.html#abi-coder) for ethersjs;
-  - [Application Binary Interface](https://solidity.readthedocs.io/en/develop/abi-spec.html#) Solidity docs.
+  - [Application Binary Interface](https://solidity.readthedocs.io/en/develop/abi-spec.html#) Solidity docs
+  - Counterfactual's use of abi encoding at [TBA]()
