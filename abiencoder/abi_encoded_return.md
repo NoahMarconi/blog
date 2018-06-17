@@ -6,10 +6,15 @@ Thank you to [Liam Horne](https://medium.com/@liamhorne) for talking me through 
 
 ## Setup
 
-In the examples below I'll use [ethers.js](https://github.com/ethers-io/ethers.js/) client side and [EthFiddle](https://ethfiddle.com/) for smart contract code snippets.
+In the examples below I'll use [ethers.js](https://github.com/ethers-io/ethers.js/) client side and [ganache-cli](https://github.com/trufflesuite/ganache-cli) to deploy and interact with a smart contract. Be sure to have these packages plus [solc-js](https://github.com/ethereum/solc-js) installed.
 
-Follow along by pasting the Solidty code in EthFiddle and by using a nodejs console for the JavaScript examples.
+Follow along by pasting the by using a `nodejs` console for the JavaScript examples.
 
+Before proceeding, start up ganache with:
+
+```
+$ ganache-cli
+```
 
 ## Background
 
@@ -17,8 +22,8 @@ Solidity's `ABIEncoderV2` allows you to encode arbitrary data types, including s
 
 Client side, the abi string `s` can represent any solidity type, with two nuances:
 
-  - `tuple` is used in place of a `struct`
-  - `uint256` is used in place of an `enum`
+  1. `tuple` is used in place of a `struct`
+  2. `uint256` is used in place of an `enum`
 
 ```
 s := tuple
@@ -29,19 +34,23 @@ s := tuple
      ...
 ```
 
-For example, a dynamic `uint256` array is represented as `s = 'uint256[]''` or a more interesting example where a `struct { uint256 id; string name }` is represented as `s = 'tuple(uint256,string)''`.
+For example, a dynamic `uint256` array is represented as `s = 'uint256[]'` or a more interesting example where a `struct { uint256 id; string name; }` is represented as `s = 'tuple(uint256,string)'`.
 
 [ethers.js](https://github.com/ethers-io/ethers.js/) has built in decoding of abi encoded byte arrays returned from smart contracts, in addition to encoding of data before passing in structs as arguments to smart contract functions.
 
-Below is a toy example showing an smart contract implementation along with the JavaScript encode/decode steps.
+Below is a toy example showing a smart contract implementation along with the JavaScript encode/decode steps.
 
 
 ## Reading Encoded Data
 
 Lets start with a Solidty smart contract that returns an array of `User` structs. It's a good example as we can see a variety of data types (`struct`, `enum`, `dynamic array` and `uint256`) in one encoded `bytes array`.
 
-```{sol}
-pragma solidity ^0.4.24;
+```{js}
+const ethers = require('ethers');
+const solc = require('solc');
+
+
+let contractCode = `pragma solidity ^0.4.24;
 
 
 contract ABIExample {
@@ -65,22 +74,31 @@ contract ABIExample {
     return users;
   }
 
-}
+}`;
+
+
+// Compile the above snippet.
+let compiledContract = solc.compile(contractCode);
+
+// And log any errors.
+console.log(compiledContract.errors[0])
 ```
+
 
 
 Gives us an error message:
 
 ```
-:23:43: TypeError: This type is only supported in the new experimental ABI encoder. Use "pragma experimental ABIEncoderV2;" to enable the feature.
+:21:43: TypeError: This type is only supported in the new experimental ABI encoder. Use "pragma experimental ABIEncoderV2;" to enable the feature.
   function get() public constant returns (User[]) {
+                                          ^----^
 ```
 
 
 Let's do what the message suggests and see what happens. Adding in `pragma experimental ABIEncoderV2;` and encoding with `abi.encode(users);` before returning a `bytes` array.
 
 ```
-pragma solidity ^0.4.24;
+contractCode = `pragma solidity ^0.4.24;
 pragma experimental ABIEncoderV2; // Use experimental encoding.
 
 contract ABIExample {
@@ -104,26 +122,72 @@ contract ABIExample {
     return abi.encode(users); // abi encode before returning.
   }
 
-}
+}`;
+
+
+// Compile again.
+compiledContract = solc.compile(contractCode);
+
+// And log any errors.
+console.log(compiledContract.errors[0]);
 ```
 
+No error this time, instead a warning that an experimental feature is being used.
 
-Deploying and run the getter (`get()`) returns the following bytes:
+```
+:2:1: Warning: Experimental features are turned on. Do not use experimental features on live deployments.
+pragma experimental ABIEncoderV2; // Use experimental encoding.
+^-------------------------------^
+```
+
+Next, deploy onto the locally running ganache instance and call the getter (`get()`).
+
+```
+// Additional imports
+const ganache      = require("ganache-cli");
+const providers    = ethers.providers;
+const web3Provider = new providers.Web3Provider(ganache.provider({ gasLimit: 6e6 }));
+const signer       = web3Provider.getSigner();
+
+// Set up contract deployment.
+let { interface, bytecode } = compiledContract.contracts[':ABIExample'];
+let deployTransaction       = ethers.Contract.getDeployTransaction('0x' + bytecode, interface);
+let sendPromise             = signer.sendTransaction(Object.assign(deployTransaction, { gas: 6e6 }));
+
+// Deploy contract.
+let transactionReceipt;
+let ABIExample;
+let userArray;
+
+sendPromise.then(res => {
+    web3Provider.getTransactionReceipt(res.hash).then(res => {
+        transactionReceipt = res;
+        // JS contract interface.
+        ABIExample = new ethers.Contract(transactionReceipt.contractAddress, interface, web3Provider);
+
+        // Log result of calling the contract's `get()` function.
+        ABIExample.get().then(res => {
+            userArray = res;
+            console.log(userArray);
+        });
+
+    });
+});
+```
+
+Logs the following bytes to the console:
 
 ```
 0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001
 ```
 
-In a `nodejs` console, decode with ethers.js:
+Now, decode those bytes using `ethersjs`'s `AbiCoder`.
 
 ```
-const ethers = require('ethers');
-
 const usersArrayType = ["tuple(uint256,uint256)[]"];
+let decodedData    = ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userArray);
 
-const encodedData = "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
-
-const decodedData = ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, encodedData);
+console.log(decodedData);
 ```
 
 
@@ -154,10 +218,10 @@ Let's try the other direction and pass in encoded data as an argument.
 
 ## Writing Encoded data
 
-First update the smart contract with a setter `set`:
+First update the smart contract with a setter `set(User newUser)`:
 
 ```
-pragma solidity ^0.4.24;
+contractCode = `pragma solidity ^0.4.24;
 pragma experimental ABIEncoderV2;
 
 
@@ -187,16 +251,36 @@ contract ABIExample {
     return abi.encode(users);
   }
 
-}
+}`
+
+// Recompile
+compiledContract = solc.compile(contractCode);
+
+// Prepare deployment with new interface and byteode.
+interface         = compiledContract.contracts[':ABIExample'].interface;
+bytecode          = compiledContract.contracts[':ABIExample'].interface;
+deployTransaction = ethers.Contract.getDeployTransaction('0x' + bytecode, interface);
+sendPromise       = signer.sendTransaction(Object.assign(deployTransaction, { gas: 6e6 }));
+
+// Deploy contract.
+transactionReceipt;
+sendPromise.then(res => {
+    web3Provider.getTransactionReceipt(res.hash).then(res => {
+        console.log(res.contractAddress);
+        transactionReceipt = res;
+        // New JS contract interface.
+        ABIExample = new ethers.Contract(transactionReceipt.contractAddress, interface, signer);
+
+    });
+});
+
 ```
 
 Again from a `nodejs` console encode some data with:
 
 ```
-const ethers = require('ethers');
-
-const userType = ["tuple(uint256,uint256)"];
-const rawData = [ // AbiCoder wraps all of the data.
+let userType = ["tuple(uint256,uint256)"];
+let inputData = [ // AbiCoder wraps all of the data.
 
     [ // User tuple.
       111, // uint256 representing `id`.
@@ -205,10 +289,19 @@ const rawData = [ // AbiCoder wraps all of the data.
 
 ];
 
-const encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, rawData);
+let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData);
+
+// Or using our contract interface:
+ABIExample.interface.functions.set({ id: 111, permission: 2 });
+
+sendPromise = ABIExample.set({ id: 111, permission: 2 }, { gasLimit: 250000 });
+
+sendPromise.then(function(transaction) {
+    console.log(transaction);
+});
 ```
 
-`encodedData` is the followin string `'0x000000000000000000000000000000000000000000000000000000000000006f0000000000000000000000000000000000000000000000000000000000000002'` which can be passed in as an argument to the `set` function.
+`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000006f0000000000000000000000000000000000000000000000000000000000000002'` which can be passed in as an argument to the `set` function.
 
 
 
