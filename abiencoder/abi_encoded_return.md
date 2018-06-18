@@ -200,7 +200,7 @@ Great, we've successfully read an `array` of `struct`s which contain `enums` fro
 
 ## Reading Encoded Bytes
 
-Another pattern is to return abi encoded `bytes` instead of a custom data type. See the modified return type along with the abi.encode prior to returning the users array:
+Another pattern is to return abi encoded `bytes` instead of a custom data type. See the modified return type along with the use of `abi.encode` prior to returning the users array:
 
 
 ```
@@ -223,12 +223,6 @@ contract ABIExample {
     users.push(User(0, Permission.Admin));
     users.push(User(1, Permission.Write));
     users.push(User(2, Permission.ReadOnly));
-  }
-
-  // Add a setter to add new users.
-  function set(User newUser) public {
-
-    users.push(newUser);
   }
 
   function get() public constant returns (bytes) { // Change return type to bytes.
@@ -273,7 +267,7 @@ Logs the following bytes to the console:
 0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001
 ```
 
-Now, decode those bytes using the `ethersjs` `AbiCoder`.
+Now, decode those bytes using the `ethers.js` `AbiCoder`.
 
 ```
 let usersArrayType = ["tuple(uint256,uint256)[]"];
@@ -402,32 +396,29 @@ let callerContractCode = `pragma solidity ^0.4.24;
 
 contract Caller {
 
-    address public callTo;
-
-    constructor(address _callTo) public {
-        callTo = _callTo;
-    }
-
-    function callExternal(bytes _data)
+    function callExternal(address _to, bytes _data)
         public
         returns (bool success)
     {
         assembly {
-            success := call(not(0), callTo, 0, add(data, 0x20), mload(data), 0, 0)
+            success := call(not(0), _to, 0, add(_data, 0x20), mload(_data), 0, 0)
         }
     }
 
 }`
 
-// Recompile
-compiledContract = solc.compile(contractCode);
+// Compile.
+const callerCompiledContract = solc.compile(callerContractCode);
 
 // Prepare deployment with new interface and bytecode.
-interface         = compiledContract.contracts[':ABIExample'].interface;
-bytecode          = compiledContract.contracts[':ABIExample'].bytecode;
-deployTransaction = ethers.Contract.getDeployTransaction('0x' + bytecode, interface);
-sendPromise       = signer.sendTransaction(Object.assign(deployTransaction, { gas: 6e6 }));
+let callerInterface = callerCompiledContract.contracts[':Caller'].interface;
+let callerBytecode  = callerCompiledContract.contracts[':Caller'].bytecode;
+deployTransaction   = ethers.Contract.getDeployTransaction('0x' + callerBytecode, callerInterface);
+callerSendPromise   = signer.sendTransaction(Object.assign(deployTransaction, { gas: 6e6 }));
+```
 
+
+The above allows us to pass arbitrary bytes and call out to another smart contract. We'll use this `Caller` contract to send encoded bytes from our nodejs console and have them received as a `User struct` in the ABIExample set method.
 
 ```
 let userType = ["tuple(uint256,uint256)"];
@@ -442,23 +433,60 @@ let inputData = [ // AbiCoder wraps all of the data.
 
 let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData);
 
+```
+
+`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000006f0000000000000000000000000000000000000000000000000000000000000002'`. Perfect if calling out to a fallback function but in our case we need the function signature appended. `ethers.js` has use covered again:
+
+
+```
 // Or using our contract interface:
-ABIExample.interface.functions.set({ id: 111, permission: 2 });
+encodedData = ABIExample.interface.functions.set({ id: 111, permission: 2 }).data;
+```
 
-sendPromise = ABIExample.set({ id: 111, permission: 2 }, { gasLimit: 2e6 });
+Finally, let's send this data to our Caller contract, which in turn relays it to ABIExample where the data is treated a `User struct`.
 
-sendPromise.then(function(transaction) {
-    console.log(transaction);
+```
+let Caller;
+
+callerSendPromise.then(res => {
+  web3Provider.getTransactionReceipt(res.hash).then(res => {
+    transactionReceipt = res;
+
+    // New JS contract interface.
+    Caller = new ethers.Contract(transactionReceipt.contractAddress, callerInterface, signer);
+
+    // Update state with User(111, Permission.Admin).
+    Caller.callExternal(ABIExample.address, encodedData, { gasLimit: 2e5 }).then(res => {
+
+        // Get the users array again to see the new `User` persisted.
+        ABIExample.get().then(res => {
+
+            // Decode and log result of calling the contract's `get()` function.
+            userArray = res;
+            console.log(ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userArray));
+        });
+    });
+  });
 });
 ```
 
-`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000006f0000000000000000000000000000000000000000000000000000000000000002'` which can be passed in as an argument to the `set` function.
+Logs the `users` array showing the relayed new `User` has been recorded!
+
+```
+[ [ [ [Object], 2, id: [Object], permission: 2 ],
+    [ [Object], 1, id: [Object], permission: 1 ],
+    [ [Object], 1, id: [Object], permission: 1 ],
+    [ [Object], 2, id: [Object], permission: 2 ],
+    [ [Object], 0, id: [Object], permission: 0 ] ] ]
+```
 
 
 
-## ABI Encoding Within the Smart contract
+## Conclusion
 
-and encoding with `abi.encode(users);` before returning a `bytes` array.
+The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types, using the types directly or their `bytes` representation. These useful techniques are used throughout Counterfactual's generalized state channels implementation.
+
+
 
 
 ## Further Reading
