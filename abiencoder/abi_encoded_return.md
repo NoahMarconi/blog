@@ -408,7 +408,7 @@ contract Caller {
 }`
 
 // Compile.
-const callerCompiledContract = solc.compile(callerContractCode);
+let callerCompiledContract = solc.compile(callerContractCode);
 
 // Prepare deployment with new interface and bytecode.
 let callerInterface = callerCompiledContract.contracts[':Caller'].interface;
