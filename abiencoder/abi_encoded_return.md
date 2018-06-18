@@ -244,6 +244,7 @@ contract ABIExample {
 
   // Add a setter to add new users.
   function set(User newUser) public {
+
     users.push(newUser);
   }
 
@@ -256,9 +257,9 @@ contract ABIExample {
 // Recompile
 compiledContract = solc.compile(contractCode);
 
-// Prepare deployment with new interface and byteode.
+// Prepare deployment with new interface and bytecode.
 interface         = compiledContract.contracts[':ABIExample'].interface;
-bytecode          = compiledContract.contracts[':ABIExample'].interface;
+bytecode          = compiledContract.contracts[':ABIExample'].bytecode;
 deployTransaction = ethers.Contract.getDeployTransaction('0x' + bytecode, interface);
 sendPromise       = signer.sendTransaction(Object.assign(deployTransaction, { gas: 6e6 }));
 
@@ -294,7 +295,7 @@ let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData)
 // Or using our contract interface:
 ABIExample.interface.functions.set({ id: 111, permission: 2 });
 
-sendPromise = ABIExample.set({ id: 111, permission: 2 }, { gasLimit: 250000 });
+sendPromise = ABIExample.set({ id: 111, permission: 2 }, { gasLimit: 2e6 });
 
 sendPromise.then(function(transaction) {
     console.log(transaction);
