@@ -62,9 +62,9 @@ contract ABIExample {
   User[] users;
 
   constructor() public {
-    users.push(User(0, Permission.Admin));
-    users.push(User(1, Permission.Write));
-    users.push(User(2, Permission.ReadOnly));
+    users.push(User(111, Permission.Admin));
+    users.push(User(222, Permission.Write));
+    users.push(User(333, Permission.ReadOnly));
   }
 
   function get() public constant returns (User[]) {
@@ -110,9 +110,9 @@ contract ABIExample {
   User[] users;
 
   constructor() public {
-    users.push(User(0, Permission.Admin));
-    users.push(User(1, Permission.Write));
-    users.push(User(2, Permission.ReadOnly));
+    users.push(User(111, Permission.Admin));
+    users.push(User(222, Permission.Write));
+    users.push(User(333, Permission.ReadOnly));
   }
 
   function get() public constant returns (User[]) {
@@ -181,17 +181,17 @@ sendPromise.then(res => {
 Logs the following array of objects to the console.
 
 ```
-[ [ BigNumber { _bn: <BN: 0> },
+[ [ BigNumber { _bn: <BN: 6f> },
     2,
-    id: BigNumber { _bn: <BN: 0> },
+    id: BigNumber { _bn: <BN: 6f> },
     permission: 2 ],
-  [ BigNumber { _bn: <BN: 1> },
+  [ BigNumber { _bn: <BN: de> },
     1,
-    id: BigNumber { _bn: <BN: 1> },
+    id: BigNumber { _bn: <BN: de> },
     permission: 1 ],
-  [ BigNumber { _bn: <BN: 2> },
+  [ BigNumber { _bn: <BN: 14d> },
     0,
-    id: BigNumber { _bn: <BN: 2> },
+    id: BigNumber { _bn: <BN: 14d> },
     permission: 0 ] ]
 ```
 
@@ -200,7 +200,7 @@ Great, we've successfully read an `array` of `struct`s which contain `enums` fro
 
 ## Reading Encoded Bytes
 
-Another pattern is to return abi encoded `bytes` instead of a custom data type. See the modified return type along with the use of `abi.encode` prior to returning the users array:
+Another pattern is to return abi encoded `bytes` instead of a custom data type. See the added `getBytes() returns (bytes)` its use of `abi.encode` prior to returning the `users` array:
 
 
 ```
@@ -220,13 +220,21 @@ contract ABIExample {
   User[] users;
 
   constructor() public {
-    users.push(User(0, Permission.Admin));
-    users.push(User(1, Permission.Write));
-    users.push(User(2, Permission.ReadOnly));
+    users.push(User(uint256(111), Permission.Admin));
+    users.push(User(uint256(222), Permission.Write));
+    users.push(User(uint256(333), Permission.ReadOnly));
   }
 
-  function get() public constant returns (bytes) { // Change return type to bytes.
-    return abi.encode(users); // Encode prior to return.
+  function getUsers() public constant returns (User[]) {
+    return users;
+  }
+
+  // New method to encode users before returning as bytes.
+  function getUsersBytes() public constant returns (bytes) { // Change return type to bytes.
+
+    User[] memory allUsers = users; // Important: load array into memory.
+
+    return abi.encode(allUsers); // Encode prior to return.
   }
 
 }`
@@ -234,14 +242,14 @@ contract ABIExample {
 // Recompile
 compiledContract = solc.compile(contractCode);
 
-// Prepare deployment with new interface and bytecode.
+// Prepare deployment overwriting interface and bytecode.
 interface         = compiledContract.contracts[':ABIExample'].interface;
 bytecode          = compiledContract.contracts[':ABIExample'].bytecode;
 deployTransaction = ethers.Contract.getDeployTransaction('0x' + bytecode, interface);
 sendPromise       = signer.sendTransaction(Object.assign(deployTransaction, { gas: 6e6 }));
 
 // Deploy contract.
-transactionReceipt;
+let userBytesArray;
 sendPromise.then(res => {
     web3Provider.getTransactionReceipt(res.hash).then(res => {
         transactionReceipt = res;
@@ -249,11 +257,11 @@ sendPromise.then(res => {
         // New JS contract interface.
         ABIExample = new ethers.Contract(transactionReceipt.contractAddress, interface, signer);
 
-        ABIExample.get().then(res => {
+        ABIExample.getUsersBytes().then(res => {
 
-            // Log result of calling the contract's `get()` function.
-            userArray = res;
-            console.log(userArray);
+            // Log result of calling the contract's `getUsersBytes()` function.
+            userBytesArray = res;
+            console.log(userBytesArray);
         });
     });
 });
@@ -264,40 +272,42 @@ sendPromise.then(res => {
 Logs the following bytes to the console:
 
 ```
-0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001
+0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006f000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000de0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000014d0000000000000000000000000000000000000000000000000000000000000000
 ```
 
 Now, decode those bytes using the `ethers.js` `AbiCoder`.
 
 ```
-let usersArrayType = ["tuple(uint256,uint256)[]"];
-let decodedData    = ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userArray);
+let usersArrayType = ["tuple(uint256,uint8)[]"];
+let decodedData    = ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userBytesArray);
 
 console.log(decodedData);
 
+// Or to print nicer decodedData[0].forEach(x => console.log(`id -> ${x[0]} permission -> ${x[1]}`));
+
 // Or if you have the abi the following would work as well.
 usersArrayType = [{"components":[{"name":"id","type":"uint256"},{"name":"permission","type":"uint8"}],"name":"","type":"tuple[]"}]
-decodedData    = ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userArray);
+decodedData    = ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userBytesArray);
 
 console.log(decodedData);
 ```
 
 
-Using `"tuple(uint256,uint256)[]"` as the type string returns some nested arrays.
+Using `"tuple(uint256,uint8)[]"` as the type string returns some nested arrays.
 
 ```
 [ // AbiCoder wraps all of the returned data.
 
     [ // User array returned from our toy smart contract.
 
-        [ [Object], [Object] ],  // `User` struct as an array of two BigNumber objects.
+        [ [Object], 2 ],  // `User` struct as an array of two BigNumber objects.
                                  // The first of which is `uint256 id`.
                                  // While the second is `Permission permission` represented
-                                 // as a `uint256` as is the case for Solidity enums.
+                                 // as a `uint8`.
 
 
-        [ [Object], [Object] ],  // `User` struct
-        [ [Object], [Object] ]   // `User` struct
+        [ [Object], 1 ],  // `User` struct
+        [ [Object], 0 ]   // `User` struct
     ]
 ]
 ```
@@ -328,19 +338,24 @@ contract ABIExample {
   User[] users;
 
   constructor() public {
-    users.push(User(0, Permission.Admin));
-    users.push(User(1, Permission.Write));
-    users.push(User(2, Permission.ReadOnly));
+    users.push(User(uint256(111), Permission.Admin));
+    users.push(User(uint256(222), Permission.Write));
+    users.push(User(uint256(333), Permission.ReadOnly));
+  }
+
+  function getUsers() public constant returns (User[]) {
+    return users;
+  }
+
+  function getUsersBytes() public constant returns (bytes) {
+    User[] memory allUsers = users;
+    return abi.encode(allUsers);
   }
 
   // Add a setter to add new users.
   function set(User newUser) public {
 
     users.push(newUser);
-  }
-
-  function get() public constant returns (bytes) {
-    return abi.encode(users);
   }
 
 }`
@@ -362,15 +377,15 @@ sendPromise.then(res => {
         // New JS contract interface.
         ABIExample = new ethers.Contract(transactionReceipt.contractAddress, interface, signer);
 
-        // Update state with User(111, Permission.Admin).
-        ABIExample.set({ id: 111, permission: 2 }, { gasLimit: 2e5 }).then(function(transaction) {
+        // Update state with User(444, Permission.Admin).
+        ABIExample.set({ id: 444, permission: 2 }, { gasLimit: 2e5 }).then(function(transaction) {
 
             // Get the users array again to see the new `User` persisted.
-            ABIExample.get().then(res => {
+            ABIExample.getUsers().then(res => {
 
-                // Decode and log result of calling the contract's `get()` function.
+                // Log the result.
                 userArray = res;
-                console.log(ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userArray));
+                console.log(userArray);
             });
         });
     });
@@ -380,10 +395,22 @@ sendPromise.then(res => {
 Logs an updated array. We've done a round trip writing a `struct` then reading it back as an `array of structs`.
 
 ```
-[ [ [ [Object], 2, id: [Object], permission: 2 ],
-    [ [Object], 1, id: [Object], permission: 1 ],
-    [ [Object], 1, id: [Object], permission: 1 ],
-    [ [Object], 2, id: [Object], permission: 2 ] ] ]
+[ [ BigNumber { _bn: <BN: 6f> },
+    2,
+    id: BigNumber { _bn: <BN: 6f> },
+    permission: 2 ],
+  [ BigNumber { _bn: <BN: de> },
+    1,
+    id: BigNumber { _bn: <BN: de> },
+    permission: 1 ],
+  [ BigNumber { _bn: <BN: 14d> },
+    0,
+    id: BigNumber { _bn: <BN: 14d> },
+    permission: 0 ],
+  [ BigNumber { _bn: <BN: 1bc> },
+    2,
+    id: BigNumber { _bn: <BN: 1bc> },
+    permission: 2 ] ]
 ```
 
 ## Writing Encoded Bytes
@@ -421,12 +448,12 @@ callerSendPromise   = signer.sendTransaction(Object.assign(deployTransaction, { 
 The above allows us to pass arbitrary bytes and call out to another smart contract. We'll use this `Caller` contract to send encoded bytes from our nodejs console and have them received as a `User struct` in the ABIExample set method.
 
 ```
-let userType = ["tuple(uint256,uint256)"];
+let userType = ["tuple(uint256,uint8)"];
 let inputData = [ // AbiCoder wraps all of the data.
 
     [ // User tuple.
-      111, // uint256 representing `id`.
-      2,   // uint256 representing `permission`.
+      555, // uint256 representing `id`.
+      0,   // uint256 representing `permission`.
     ]
 
 ];
@@ -435,12 +462,12 @@ let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData)
 
 ```
 
-`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000006f0000000000000000000000000000000000000000000000000000000000000002'`. Perfect if calling out to a fallback function but in our case we need the function signature appended. `ethers.js` has use covered again:
+`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000022b0000000000000000000000000000000000000000000000000000000000000000'`. Perfect if calling out to a fallback function but in our case we need the function signature prepended. `ethers.js` has us covered again:
 
 
 ```
 // Or using our contract interface:
-encodedData = ABIExample.interface.functions.set({ id: 111, permission: 2 }).data;
+encodedData = ABIExample.interface.functions.set({ id: 555, permission: 0 }).data;
 ```
 
 Finally, let's send this data to our Caller contract, which in turn relays it to ABIExample where the data is treated a `User struct`.
@@ -459,11 +486,11 @@ callerSendPromise.then(res => {
     Caller.callExternal(ABIExample.address, encodedData, { gasLimit: 2e5 }).then(res => {
 
         // Get the users array again to see the new `User` persisted.
-        ABIExample.get().then(res => {
+        ABIExample.getUsers().then(res => {
 
-            // Decode and log result of calling the contract's `get()` function.
+            // Log result.
             userArray = res;
-            console.log(ethers.utils.AbiCoder.defaultCoder.decode(usersArrayType, userArray));
+            console.log(userArray);
         });
     });
   });
@@ -473,20 +500,33 @@ callerSendPromise.then(res => {
 Logs the `users` array showing the relayed new `User` has been recorded!
 
 ```
-[ [ [ [Object], 2, id: [Object], permission: 2 ],
-    [ [Object], 1, id: [Object], permission: 1 ],
-    [ [Object], 1, id: [Object], permission: 1 ],
-    [ [Object], 2, id: [Object], permission: 2 ],
-    [ [Object], 0, id: [Object], permission: 0 ] ] ]
+[ [ BigNumber { _bn: <BN: 6f> },
+    2,
+    id: BigNumber { _bn: <BN: 6f> },
+    permission: 2 ],
+  [ BigNumber { _bn: <BN: de> },
+    1,
+    id: BigNumber { _bn: <BN: de> },
+    permission: 1 ],
+  [ BigNumber { _bn: <BN: 14d> },
+    0,
+    id: BigNumber { _bn: <BN: 14d> },
+    permission: 0 ],
+  [ BigNumber { _bn: <BN: 1bc> },
+    2,
+    id: BigNumber { _bn: <BN: 1bc> },
+    permission: 2 ],
+  [ BigNumber { _bn: <BN: 22b> },
+    0,
+    id: BigNumber { _bn: <BN: 22b> },
+    permission: 0 ] ]
 ```
 
 
 
 ## Conclusion
 
-The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types, using the types directly or their `bytes` representation. These useful techniques are used throughout Counterfactual's generalized state channels implementation.
-
-
+The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types: using the types directly, using or their `bytes` representation. These useful techniques are used throughout Counterfactual's generalized state channels implementation.
 
 
 ## Further Reading
