@@ -453,7 +453,7 @@ let inputData = [ // AbiCoder wraps all of the data.
 
     [ // User tuple.
       555, // uint256 representing `id`.
-      0,   // uint256 representing `permission`.
+      0,   // uint8 representing `permission`.
     ]
 
 ];
@@ -470,7 +470,7 @@ let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData)
 encodedData = ABIExample.interface.functions.set({ id: 555, permission: 0 }).data;
 ```
 
-Finally, let's send this data to our Caller contract, which in turn relays it to ABIExample where the data is treated a `User struct`.
+Finally, let's send this data to our Caller contract, which in turn relays it to ABIExample where the data is relayed as a `User struct`.
 
 ```
 let Caller;
@@ -482,7 +482,7 @@ callerSendPromise.then(res => {
     // New JS contract interface.
     Caller = new ethers.Contract(transactionReceipt.contractAddress, callerInterface, signer);
 
-    // Update state with User(111, Permission.Admin).
+    // Update state with User(555, Permission.ReadOnly).
     Caller.callExternal(ABIExample.address, encodedData, { gasLimit: 2e5 }).then(res => {
 
         // Get the users array again to see the new `User` persisted.
