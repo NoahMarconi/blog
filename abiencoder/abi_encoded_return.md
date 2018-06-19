@@ -484,7 +484,7 @@ callerSendPromise.then(res => {
     // New JS contract interface.
     Caller = new ethers.Contract(transactionReceipt.contractAddress, callerInterface, signer);
 
-    // Update state with User(111, Permission.Admin).
+    // Update state with User(555, Permission.ReadOnly).
     Caller.callExternal(ABIExample.address, encodedData, { gasLimit: 2e5 }).then(res => {
 
         // Get the users array again to see the new `User` persisted.
