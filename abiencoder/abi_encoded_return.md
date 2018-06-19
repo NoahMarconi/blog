@@ -301,9 +301,9 @@ Using `"tuple(uint256,uint8)[]"` as the type string returns some nested arrays.
     [ // User array returned from our toy smart contract.
 
         [ [Object], 2 ],  // `User` struct as an array of two BigNumber objects.
-                                 // The first of which is `uint256 id`.
-                                 // While the second is `Permission permission` represented
-                                 // as a `uint8`.
+                          // The first of which is `uint256 id`.
+                          // While the second is `Permission permission` represented
+                          // as a `uint8`.
 
 
         [ [Object], 1 ],  // `User` struct
