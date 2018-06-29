@@ -103,11 +103,7 @@ pragma experimental ABIEncoderV2; // Use experimental encoding.
 ... snip ...
 ```
 
-<<<<<<< HEAD
 No error when compiling this time, instead a only warning that an experimental feature is being used.
-=======
-No error this time, instead only a warning that an experimental feature is being used.
->>>>>>> 9dc9b034b616b8be866d0d6688d29a50bda1d6c0
 
 ```
 :2:1: Warning: Experimental features are turned on. Do not use experimental features on live deployments.
@@ -401,7 +397,6 @@ Logs the `users` array showing the relayed new `User` has been recorded!
 
 ## Conclusion
 
-<<<<<<< HEAD
 The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types: using the types directly, using or their `bytes` representation. These useful techniques are used throughout Counterfactual's generalized state channels implementation and are appropriate for a variety of use cases.
 
 Try it out the next time your project can benefit from sending and receiving complex data types.
@@ -410,9 +405,6 @@ Try it out the next time your project can benefit from sending and receiving com
 ## Full Example
 
 For a complete example (copy and paste into `nodejs`) see: [ABIExample Gist](https://gist.github.com/NoahMarconi/be4213f8147dea60a1ab30db86760828)
-=======
-The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types: using the types directly, or using their `bytes` representation. These useful techniques are used throughout [Counterfactual's generalized state channels implementation](https://counterfactual.com/statechannels).
->>>>>>> 9dc9b034b616b8be866d0d6688d29a50bda1d6c0
 
 
 ## Further Reading
