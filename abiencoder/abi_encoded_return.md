@@ -38,7 +38,7 @@ Below is a toy example showing a smart contract implementation along with the Ja
 
 ## Reading Complex Data Types
 
-Lets start with a Solidty smart contract that returns an array of `User` structs. It's a good example as we can see a variety of data types (`struct`, `enum`, `dynamic array` and `uint256`) in one return value.
+Let's start with a Solidity smart contract that returns an array of `User` structs. It's a good example as we can see a variety of data types (`struct`, `enum`, `dynamic array` and `uint256`) in one return value.
 
 ```{solidity}
 pragma solidity ^0.4.24;
