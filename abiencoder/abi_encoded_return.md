@@ -1,6 +1,8 @@
 # Solidity ABI Encoded Return Types
 
-Counterfactual's generalized state channel implementation relies on abi encoding to pass arbitrary data structures between JavaScript client applications and smart contracts. A useful pattern I wanted to learn more about and incorporate into my own projects.
+[Counterfactual](https://counterfactual.com/statechannels)'s generalized state channel implementation relies on abi encoding to pass arbitrary data structures between JavaScript client applications and smart contracts. This is a useful design pattern I wanted to learn more about and incorporate into my own projects.
+
+In this blog post I describe the basics of ABI encoding in Solidity, and explain how it can be used to read and write complex data types.
 
 Thank you to [Liam Horne](https://medium.com/@liamhorne) for talking me through how all of this works.
 
@@ -101,7 +103,11 @@ pragma experimental ABIEncoderV2; // Use experimental encoding.
 ... snip ...
 ```
 
+<<<<<<< HEAD
 No error when compiling this time, instead a only warning that an experimental feature is being used.
+=======
+No error this time, instead only a warning that an experimental feature is being used.
+>>>>>>> 9dc9b034b616b8be866d0d6688d29a50bda1d6c0
 
 ```
 :2:1: Warning: Experimental features are turned on. Do not use experimental features on live deployments.
@@ -323,7 +329,7 @@ let inputData = [ // AbiCoder wraps all of the data.
 
     [ // User tuple.
       555, // uint256 representing `id`.
-      0,   // uint8 representing `permission`.
+      0,   // uint256 representing `permission`.
     ]
 
 ];
@@ -331,7 +337,7 @@ let inputData = [ // AbiCoder wraps all of the data.
 let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData);
 ```
 
-`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000022b0000000000000000000000000000000000000000000000000000000000000000'`. Perfect if calling out to a fallback function but in our case we need the function signature prepended. `ethers.js` has us covered again:
+`encodedData` is the following string `'0x000000000000000000000000000000000000000000000000000000000000022b0000000000000000000000000000000000000000000000000000000000000000'`. Perfect if calling out to a fallback function, but in our case we need the function signature prepended. `ethers.js` has us covered again:
 
 
 ```
@@ -339,7 +345,7 @@ let encodedData = ethers.utils.AbiCoder.defaultCoder.encode(userType, inputData)
 encodedData = ABIExample.interface.functions.set({ id: 555, permission: 0 }).data;
 ```
 
-Finally, let's send this data to our Caller contract, which in turn relays it to ABIExample where the data is relayed as a `User struct`.
+Finally, let's send this data to our Caller contract, which in turn relays it to ABIExample where the data is treated a `User struct`.
 
 ```
 let Caller;
@@ -395,6 +401,7 @@ Logs the `users` array showing the relayed new `User` has been recorded!
 
 ## Conclusion
 
+<<<<<<< HEAD
 The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types: using the types directly, using or their `bytes` representation. These useful techniques are used throughout Counterfactual's generalized state channels implementation and are appropriate for a variety of use cases.
 
 Try it out the next time your project can benefit from sending and receiving complex data types.
@@ -403,6 +410,9 @@ Try it out the next time your project can benefit from sending and receiving com
 ## Full Example
 
 For a complete example (copy and paste into `nodejs`) see: [ABIExample Gist](https://gist.github.com/NoahMarconi/be4213f8147dea60a1ab30db86760828)
+=======
+The combination of `ethers.js` and Solidity's `ABIEncoderV2` opens the door to two means of reading and writing complex data types: using the types directly, or using their `bytes` representation. These useful techniques are used throughout [Counterfactual's generalized state channels implementation](https://counterfactual.com/statechannels).
+>>>>>>> 9dc9b034b616b8be866d0d6688d29a50bda1d6c0
 
 
 ## Further Reading
